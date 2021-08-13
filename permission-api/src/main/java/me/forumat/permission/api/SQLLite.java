@@ -1,5 +1,9 @@
 package me.forumat.permission.api;
 
+import com.mysql.cj.jdbc.MysqlDataSource;
+import lombok.SneakyThrows;
+import org.sqlite.SQLiteDataSource;
+
 import java.sql.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -13,8 +17,10 @@ public class SQLLite {
     public SQLLite() {
         try {
 
-            String url = "jdbc:sqlite:dataBase.db";
-            this.connection = DriverManager.getConnection(url);
+            SQLiteDataSource sqLiteDataSource = new SQLiteDataSource();
+            sqLiteDataSource.setUrl("jdbc:sqlite:dataBase.db");
+
+            connection = sqLiteDataSource.getConnection();
 
         } catch (SQLException ignored) {
             ignored.printStackTrace();
@@ -44,7 +50,7 @@ public class SQLLite {
         });
     }
 
-    public CompletableFuture<ResultSet> getResult(PreparedStatement preparedStatement) {
+    public CompletableFuture<ResultSet> getResultAsync(PreparedStatement preparedStatement) {
         CompletableFuture<ResultSet> future = new CompletableFuture<>();
 
         executorService.execute(() -> {
@@ -56,6 +62,11 @@ public class SQLLite {
         });
 
         return future;
+    }
+
+    @SneakyThrows
+    public ResultSet getResult(PreparedStatement preparedStatement) {
+        return preparedStatement.executeQuery();
     }
 
 }

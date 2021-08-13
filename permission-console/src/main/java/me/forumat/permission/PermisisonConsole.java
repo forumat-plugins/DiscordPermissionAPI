@@ -3,7 +3,6 @@ package me.forumat.permission;
 import me.forumat.permission.api.PermissionAPI;
 import me.forumat.permission.api.impl.model.PermissionNode;
 import me.forumat.permission.api.impl.model.PermissionRole;
-import me.forumat.permission.api.shared.model.IPermissionRole;
 import me.forumat.permission.command.SimpleCommandManager;
 
 import java.util.ArrayList;
@@ -16,19 +15,21 @@ public class PermisisonConsole {
 
     public static void main(String[] arguments) {
         PermissionAPI permissionAPI = PermissionAPI.getAPI();
+        permissionAPI.getPermissionRoleService().loadRoles();
 
         SimpleCommandManager commandManager = new SimpleCommandManager();
 
         commandManager.getCommands().put("createrank", args -> {
             //createrank <name> <parents...>
-            if (args.length < 2) {
+            System.out.println(Arrays.toString(args));
+            if (args.length < 1) {
                 System.out.println("createrank <roleID> <parentgroups...>");
                 return;
             }
-            String[] parentGroupIDs = Arrays.copyOfRange(args, 2, args.length);
-            IPermissionRole permissionRole = new PermissionRole(
+            String[] parentGroupIDs = args.length == 1 ? new String[]{} : Arrays.copyOfRange(args, 1, args.length);
+            PermissionRole permissionRole = new PermissionRole(
                     args[0],
-                    Arrays.stream(parentGroupIDs).map(groupID -> permissionAPI.getPermissionRoleService().getRole(groupID)).collect(Collectors.toList()),
+                    Arrays.asList(parentGroupIDs),
                     new ArrayList<>());
             permissionAPI.getPermissionRoleService().createRole(permissionRole);
             System.out.println("created rank for roleID: " + args[0] + " with parents: " + Arrays.toString(parentGroupIDs));
@@ -36,15 +37,45 @@ public class PermisisonConsole {
 
         commandManager.getCommands().put("addpermission", args -> {
 
-            if(args.length != 3) {
-                System.out.println("addpermission <roleID> <permission> <negated>");
+            if (args.length != 3) {
+                System.out.println("addpermission <roleID> <permission> <power>");
                 return;
             }
 
-            IPermissionRole permissionRole = permissionAPI.getPermissionRoleService().getRole(args[0]);
-            permissionRole.addPermissions(new PermissionNode(args[1], Boolean.getBoolean(args[2])));
+            PermissionRole permissionRole = permissionAPI.getPermissionRoleService().getRole(args[0]);
+            permissionRole.addPermissions(new PermissionNode(args[1], Integer.parseInt(args[2])));
             permissionAPI.getPermissionRoleService().saveRole(permissionRole);
             System.out.println("Added permission " + args[1] + " to role " + args[0]);
+
+        });
+
+        commandManager.getCommands().put("removepermission", args -> {
+            if (args.length != 3) {
+                System.out.println("addpermission <roleID> <permission> <power>");
+                return;
+            }
+
+            PermissionRole permissionRole = permissionAPI.getPermissionRoleService().getRole(args[0]);
+            permissionRole.removePermissions(new PermissionNode(args[1], Integer.parseInt(args[2])));
+            permissionAPI.getPermissionRoleService().saveRole(permissionRole);
+            System.out.println("Removed permission " + args[1] + " from role " + args[0]);
+        });
+
+        commandManager.getCommands().put("permissions", args -> {
+
+            if (args.length != 1) {
+                System.out.println("permissions <roleID>");
+                return;
+            }
+
+            PermissionRole rank = permissionAPI.getPermissionRoleService().getRole(args[0]);
+            if (rank == null) {
+                System.out.println("rank not found");
+                return;
+            }
+            for (PermissionNode permissionNode : rank.getPermissions()) {
+                System.out.println("» " + permissionNode.getPermissionString() + " | " + permissionNode.getPower());
+            }
 
         });
 
@@ -53,9 +84,10 @@ public class PermisisonConsole {
             Scanner scanner = new Scanner(System.in);
             while (scanner.hasNext()) {
 
-                String command = scanner.next();
-                if (commandManager.getCommands().containsKey(command.split(" ")[0])) {
-                    commandManager.getCommands().get(command.split(" ")[0]).accept(Arrays.copyOfRange(command.split(" "), 1, command.split(" ").length));
+                String command = scanner.nextLine();
+                String[] args = command.split(" ");
+                if (commandManager.getCommands().containsKey(args[0])) {
+                    commandManager.getCommands().get(args[0]).accept(Arrays.copyOfRange(args, 1, args.length));
                 }
 
             }

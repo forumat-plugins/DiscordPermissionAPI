@@ -12,44 +12,31 @@ import java.sql.PreparedStatement;
 @Getter
 public class PermissionAPI {
 
-    @Getter private static PermissionAPI API = null;
+    private static PermissionAPI API = null;
     private SQLLite sqlLite;
 
     private IPermissionRoleService permissionRoleService;
     private IPermissionEntityService permissionEntityService;
 
-    @SneakyThrows
-    public static void main(String[] args) {
+    public static PermissionAPI getAPI() {
+        if (API == null) {
+            API = new PermissionAPI();
+            loadAPI();
+        }
+        return API;
+    }
 
-        API = new PermissionAPI();
-
+    private static void loadAPI() {
         API.sqlLite = new SQLLite();
 
-        //ranks table
-        {
-            PreparedStatement preparedStatement = API.sqlLite.prepareStatement(
-                    "CREATE TABLE IF NOT EXISTS ranks (roleID TEXT, permissionRole TEXT)"
-            );
-            API.sqlLite.updateValue(preparedStatement, () -> {
-            });
-        }
 
-        //users table
-        {
-            PreparedStatement preparedStatement = API.sqlLite.prepareStatement(
-                    "CREATE TABLE IF NOT EXISTS rankEntities (memberID TEXT, permissionEntity TEXT)"
-            );
-            API.sqlLite.updateValue(preparedStatement, () -> {
-            });
-        }
+        PreparedStatement preparedStatement = API.sqlLite.prepareStatement(
+                "CREATE TABLE IF NOT EXISTS ranks (roleID TEXT, permissionRole TEXT)"
+        );
+        API.sqlLite.updateValue(preparedStatement, () -> {
+        });
 
         API.permissionRoleService = new PermissionRoleService();
         API.permissionEntityService = new PermissionEntityService();
     }
-
-    public PermissionAPI() throws Exception {
-        if (API != null) throw new Exception("Cannot instanciate permission-api");
-        API = this;
-    }
-
 }

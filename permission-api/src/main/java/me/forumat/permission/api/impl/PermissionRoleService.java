@@ -4,76 +4,70 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import lombok.SneakyThrows;
 import me.forumat.permission.api.PermissionAPI;
+import me.forumat.permission.api.impl.model.PermissionRole;
 import me.forumat.permission.api.shared.IPermissionRoleService;
-import me.forumat.permission.api.shared.model.IPermissionRole;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
 
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public class PermissionRoleService implements IPermissionRoleService {
 
-    private List<IPermissionRole> cachedRoles = null;
+    private List<PermissionRole> cachedRoles = null;
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
+    @SneakyThrows
     @Override
-    public CompletableFuture<List<IPermissionRole>> loadRoles() {
-        CompletableFuture<List<IPermissionRole>> future = new CompletableFuture<>();
+    public List<PermissionRole> loadRoles() {
 
         if (cachedRoles != null) {
-            future.complete(cachedRoles);
+            return cachedRoles;
         } else {
             PreparedStatement preparedStatement = PermissionAPI.getAPI().getSqlLite().prepareStatement("SELECT * FROM ranks");
 
-            PermissionAPI.getAPI().getSqlLite().getResult(preparedStatement).thenAccept(result -> {
-                List<IPermissionRole> roles = new ArrayList<>();
+            ResultSet result = PermissionAPI.getAPI().getSqlLite().getResult(preparedStatement);
+            List<PermissionRole> roles = new ArrayList<>();
 
-                try {
+            while (result.next()) {
+                roles.add(gson.fromJson(result.getString("permissionRole"), PermissionRole.class));
+            }
 
-                    while (result.next()) {
-                        roles.add(gson.fromJson(result.getString("permissionRole"), IPermissionRole.class));
-                    }
-
-                    cachedRoles = roles;
-                    future.complete(roles);
-
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            });
+            cachedRoles = roles;
+            return roles;
         }
-
-
-        return future;
     }
 
     @Override
-    public IPermissionRole getRole(Member member) {
+    public List<PermissionRole> getRoles(Member member) {
 
+        List<PermissionRole> roles = new ArrayList<>();
         for (Role role : member.getRoles()) {
             if (getRole(role.getId()) != null) {
-                return getRole(role.getId());
+                roles.add(getRole(role.getId()));
             }
         }
 
-        return null;
+        return roles;
 
     }
 
     @Override
-    public IPermissionRole getRole(String roleID) {
-        if(cachedRoles == null) return null;
+    public PermissionRole getRole(String roleID) {
+        if (cachedRoles == null) {
+            loadRoles();
+            return getRole(roleID);
+        }
 
         return cachedRoles.stream().filter(permissionRole -> permissionRole.getRoleId().equals(roleID)).findFirst().orElse(null);
     }
 
     @SneakyThrows
     @Override
-    public void saveRole(IPermissionRole role) {
+    public void saveRole(PermissionRole role) {
 
         this.cachedRoles = null;
 
@@ -81,20 +75,24 @@ public class PermissionRoleService implements IPermissionRoleService {
         preparedStatement.setString(1, gson.toJson(role));
         preparedStatement.setString(2, role.getRoleId());
 
-        PermissionAPI.getAPI().getSqlLite().updateValue(preparedStatement, () -> { });
+        PermissionAPI.getAPI().getSqlLite().updateValue(preparedStatement, () -> {
+        });
 
         loadRoles();
     }
 
     @SneakyThrows
     @Override
-    public void createRole(IPermissionRole role) {
+    public void createRole(PermissionRole role) {
 
         PreparedStatement preparedStatement = PermissionAPI.getAPI().getSqlLite().prepareStatement("INSERT INTO ranks (permissionRole, roleID) VALUES (?, ?)");
         preparedStatement.setString(1, gson.toJson(role));
         preparedStatement.setString(2, role.getRoleId());
 
         PermissionAPI.getAPI().getSqlLite().updateValue(preparedStatement, () -> {});
+
+        cachedRoles = null;
+        loadRoles();
 
     }
 }
